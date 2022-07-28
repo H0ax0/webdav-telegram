@@ -46,11 +46,12 @@ class TorrentService(Service):
             await asyncio.sleep(0.5)
             d.update()
 
-        if d.status == 'error':
-            await self.pyrogram.send_message(
-                self.user,
-                f"{emoji.CROSS_MARK} Unable to download metadata information from magnet link"
-            )
+            if d.status == 'error':
+                await self.pyrogram.send_message(
+                    self.user,
+                    f"{emoji.CROSS_MARK} Unable to download metadata information from magnet link"
+                )
+                break
 
         d = aria2.add_torrent(f'/app/data/{d.info_hash}.torrent',
                               options={'dry-run': 'true'})
@@ -82,15 +83,15 @@ class TorrentService(Service):
         )
         self.reset_stats()
             
-        while not download.is_complete:
+        while not download.is_complete and not download.status != "error":
             await asyncio.sleep(3)
             download.update()
-            self._make_progress(download.completed_length, download.total_length)
+            self._make_progress(download.completed_length, 
+                                download.total_length, 
+                                speed=download.download_speed,
+                                eta=download.eta.seconds)
 
         self._set_state(TaskState.WAITING, description=f"{emoji.HOURGLASS_DONE} Files successfull downloaded")
-        
-        # Update
-        download = aria2.get_download(download.gid)
 
         if download.status != 'complete':
             raise Exception(download.error_message)
